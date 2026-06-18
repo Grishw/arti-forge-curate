@@ -3,6 +3,8 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
+from app.repositories.event_work_repository import EventWorkRepository
+from app.repositories.work_repository import WorkRepository
 from app.schemas.event import Event, EventCreate, EventUpdate
 from app.services.event_service import EventService
 from app.core.dependencies import get_current_curator_or_admin
@@ -224,3 +226,30 @@ async def download_event_public(event_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename=event_{event_id}.zip"}
     )
+
+@router.get("/{event_id}/works")
+async def get_event_works(
+    event_id: str,
+    current_user: User = Depends(get_current_curator_or_admin)
+):
+    """Возвращает список EventWork для события, включая информацию о работе."""
+    service = EventService()
+    # Проверяем существование события и права
+    event = await service.get_event(event_id)
+    if current_user.role != "admin" and event.curator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your event")
+    
+    # Получаем все EventWork для этого события
+    event_work_repo = EventWorkRepository()
+    event_works = await event_work_repo.list(event_id=event_id)
+    
+    # Для каждого получаем детали работы (можно сделать одним запросом, но для простоты – цикл)
+    result = []
+    for ew in event_works:
+        work_repo = WorkRepository()
+        work = await work_repo.get(ew.work_id)
+        result.append({
+            **ew.model_dump(),
+            'work': work.model_dump() if work else None
+        })
+    return result
