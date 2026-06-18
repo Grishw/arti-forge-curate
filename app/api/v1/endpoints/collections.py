@@ -6,12 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 
 from fastapi.responses import StreamingResponse
+from app.repositories.collection_work_repository import CollectionWorkRepository
+from app.repositories.work_repository import WorkRepository
 from app.schemas.collection import Collection, CollectionCreate, CollectionUpdate
 from app.services.collection_service import CollectionService
 from app.core.dependencies import get_current_curator_or_admin
 from app.schemas.user import User
 from app.schemas.collection_work import CollectionWorkCreate, CollectionWorkUpdate
 from app.services.assignment_service import AssignmentService
+from app.services.collection_service import CollectionService
+from app.services.event_service import EventService
 
 router = APIRouter()
 
@@ -155,20 +159,6 @@ async def download_collection(collection_id: str):
         headers={"Content-Disposition": f"attachment; filename=collection_{collection_id}.zip"}
     )
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from io import BytesIO
-import zipfile
-import os
-from typing import List, Optional
-from app.schemas.collection import Collection, CollectionCreate, CollectionUpdate
-from app.services.collection_service import CollectionService
-from app.services.event_service import EventService
-from app.core.dependencies import get_current_curator_or_admin
-from app.schemas.user import User
-
-router = APIRouter()
-
 # Приватные эндпоинты (требуют авторизации) – без изменений
 @router.get("/", response_model=List[Collection])
 async def list_collections(
@@ -261,3 +251,30 @@ async def download_collection_public(collection_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename=collection_{collection_id}.zip"}
     )
+
+@router.get("/{collection_id}/works")
+async def get_collection_works(
+    collection_id: str,
+    current_user: User = Depends(get_current_curator_or_admin)
+):
+    """Возвращает список EventWork для события, включая информацию о работе."""
+    service = CollectionService()
+    # Проверяем существование события и права
+    event = await service.get_collection(collection_id)
+    if current_user.role != "admin" and event.curator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your event")
+    
+    # Получаем все CollectionWork для этого события
+    event_work_repo = CollectionWorkRepository()
+    event_works = await event_work_repo.list(collection_id=collection_id)
+    
+    # Для каждого получаем детали работы (можно сделать одним запросом, но для простоты – цикл)
+    result = []
+    for ew in event_works:
+        work_repo = WorkRepository()
+        work = await work_repo.get(ew.work_id)
+        result.append({
+            **ew.model_dump(),
+            'work': work.model_dump() if work else None
+        })
+    return result

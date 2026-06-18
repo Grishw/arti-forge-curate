@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     data_root: str = Field("./data", env="DATA_ROOT")
     forge_ingest_api_key: str = Field(..., env="FORGE_INGEST_API_KEY")
     lens_public_access: bool = Field(True, env="LENS_PUBLIC_ACCESS")
+    storage_secret : str = Field(..., env="STORAGE_SECRET")
+    
 
     class Config:
         env_file = ".env"
