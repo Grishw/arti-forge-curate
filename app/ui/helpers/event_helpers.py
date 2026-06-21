@@ -11,6 +11,15 @@ async def publish_event(event_id: str):
     else:
         ui.notify(f'Ошибка публикации: {resp.text}', type='negative')
 
+async def unpublish_event(event_id: str):
+    """Снять событие с публикации (перевести в черновик)"""
+    resp = await post(f'events/{event_id}/unpublish')
+    if resp.status_code == 200:
+        ui.notify('Событие переведено в черновик', type='positive')
+        ui.navigate.to(f'/events/{event_id}')
+    else:
+        ui.notify(f'Ошибка: {resp.text}', type='negative')
+
 async def delete_event(event_id: str):
     """Удалить событие"""
     resp = await delete(f'events/{event_id}')

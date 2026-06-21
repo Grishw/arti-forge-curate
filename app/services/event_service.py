@@ -71,9 +71,48 @@ class EventService:
         updated = await self.event_repo.update(event_id, {"status": "published"})
         return updated
 
-    async def search_events(self, query: str, curator_id: Optional[str] = None) -> List[Event]:
-        # Все события (или с фильтром по куратору)
-        events = await self.list_events(curator_id=curator_id)
-        # Фильтруем по названию или описанию (регистронезависимо)
-        q = query.lower()
-        return [e for e in events if q in e.name.lower() or (e.description and q in e.description.lower())]
+    async def unpublish_event(self, event_id: str) -> Event:
+        # Проверяем, что событие существует
+        existing = await self.get_event(event_id)
+        
+        update_data = {"status": "draft"}  # поле зависит от вашей модели
+        updated = await self.event_repo.update(event_id, update_data)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Event not found")
+        return updated
+
+    async def search_events(
+        self,
+        q: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        curator_id: Optional[str] = None,
+    ) -> List[Event]:
+        # 1. Базовый фильтр по точным полям (статус, куратор)
+        filters = {}
+        if status is not None:
+            filters['status'] = status
+        if curator_id is not None:
+            filters['curator_id'] = curator_id
+
+        events = await self.repository.list(**filters)  # list() уже фильтрует по точному совпадению
+
+        # 2. Если задан q – ищем по name ИЛИ description (регистронезависимо)
+        if q:
+            q_lower = q.lower()
+            events = [
+                e for e in events
+                if q_lower in e.name.lower()
+                or (e.description and q_lower in e.description.lower())
+            ]
+        else:
+            # 3. Иначе применяем отдельные фильтры name и description (AND-логика)
+            if name:
+                name_lower = name.lower()
+                events = [e for e in events if name_lower in e.name.lower()]
+            if description:
+                desc_lower = description.lower()
+                events = [e for e in events if e.description and desc_lower in e.description.lower()]
+
+        return events

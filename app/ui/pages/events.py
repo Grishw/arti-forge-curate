@@ -16,7 +16,8 @@ from ..helpers import (
     remove_work_from_container,
     publish_event,
     delete_event,
-    update_event
+    update_event,
+    unpublish_event
 )
 
 # ---------- Создание события ----------
@@ -122,6 +123,8 @@ async def event_page(event_id: str):
         ui.button('Назад', on_click=lambda: ui.navigate.to('/dashboard'))
         if event.get('status') != 'published':
             ui.button('Опубликовать', on_click=lambda: publish_event(event_id))
+        elif  event.get('status') == 'published':
+            ui.button('В архив', on_click=lambda: unpublish_event(event_id))
         ui.button('Редактировать', on_click=show_edit_dialog)
         ui.button('Удалить', on_click=lambda: confirm_dialog(
             title='Удалить событие?',
