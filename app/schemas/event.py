@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional, Dict, Any
 
 class EventBase(BaseModel):
     name: str
@@ -29,3 +29,13 @@ class Event(EventBase):
 
     class Config:
         from_attributes = True
+
+class MarkerImageInfo(BaseModel):
+    marker_id: str
+    image_url: str  # ссылка на эндпоинт для получения изображения
+    anchor_params: Dict[str, Any]  # параметры привязки (planeType, physicalWidth и т.д.)
+    attached_models: Optional[list] = None
+
+class EventMarkersResponse(BaseModel):
+    event_id: str
+    works: Dict[str, List[MarkerImageInfo]]  # work_id -> список маркеро

@@ -10,6 +10,7 @@ async def add_work_to_container(container_id: str, container_type: str, work_id:
     """
     endpoint = f'{container_type}/{container_id}/works'
     data = {
+        f'{container_type[:-1]}_id': container_id,
         'work_id': work_id,
         'display_settings': settings,
         'status': status,
