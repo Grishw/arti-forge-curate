@@ -84,6 +84,17 @@ async def publish_event(
         raise HTTPException(status_code=403, detail="Not your event")
     return await service.publish_event(event_id)
 
+@router.post("/{event_id}/unpublish", response_model=Event)
+async def unpublish_event(
+    event_id: str,
+    current_user: User = Depends(get_current_curator_or_admin)
+):
+    service = EventService()
+    event = await service.get_event(event_id)
+    if current_user.role != "admin" and event.curator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your event")
+    return await service.unpublish_event(event_id)
+
 @router.get("/search", response_model=List[Event])
 async def search_events(
     q: str = Query(..., min_length=1),
@@ -193,13 +204,31 @@ async def list_public_events(status: Optional[str] = "published"):
     return await service.list_events(status=status)
 
 @router.get("/public/search", response_model=List[Event])
-async def search_public_events(q: str = Query(..., min_length=1)):
-    """Публичный поиск (для Lens)"""
+async def search_public_events(
+    q: Optional[str] = Query(None, min_length=1, description="Общий поиск по имени и описанию"),
+    name: Optional[str] = Query(None, min_length=1, description="Поиск по имени (частичное совпадение)"),
+    description: Optional[str] = Query(None, min_length=1, description="Поиск по описанию (частичное совпадение)"),
+    curator_id: Optional[str] = Query(None, description="ID куратора (точное совпадение)"),
+    event_id: Optional[str] = Query(None, description="Поиск по ID (точное совпадение)"),
+):
     service = EventService()
-    # Ищем по всем опубликованным событиям
-    events = await service.list_events(status="published")
-    q_lower = q.lower()
-    return [e for e in events if q_lower in e.name.lower() or (e.description and q_lower in e.description.lower())]
+
+    # Если указан event_id – ищем конкретное событие и проверяем, что оно опубликовано
+    if event_id:
+        event = await service.get_event(event_id)
+        if event and event.status == "published":
+            return [event]
+        return []
+
+    # Всегда фильтруем по статусу "published" + применяем остальные параметры
+    events = await service.search_events(
+        q=q,
+        name=name,
+        description=description,
+        status="published",         
+        curator_id=curator_id,
+    )
+    return events
 
 @router.get("/{event_id}/download", response_class=StreamingResponse)
 async def download_event_public(event_id: str):
