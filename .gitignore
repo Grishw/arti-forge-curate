@@ -10,6 +10,7 @@ __pycache__/
 .nicegui/
 # C extensions
 *.so
+.DS_Store
 
 # Distribution / packaging
 .Python
@@ -207,6 +208,7 @@ cython_debug/
 # .vscode/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
+.vscode/
 
 # Ruff stuff:
 .ruff_cache/
